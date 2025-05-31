@@ -9,8 +9,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # Admin system
-ADMIN_IDS = [6165060012]
-user_permissions = {6165060012: float("inf")}
+ADMIN_IDS = [6803968373]
+user_permissions = {6803968373: float("inf")}
 user_used_free_plan = set()
 
 # Twilio session
@@ -47,7 +47,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/show_messages\n"
         "/delete_number\n"
         "/my_numbers\n"
-        " 🛂SUPPORT : @EVANHELPING_BOT"
+        " 🛂SUPPORT : @MAHIRVAI2"
     )
 
 # Admin permission grant
@@ -335,7 +335,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Start bot
 def main():
     keep_alive()
-    TOKEN ="8018963341:AAFBirbNovfFyvlzf_EBDrBsv8qPW5IpIDA"
+    TOKEN ="7399378678:AAFN8Gvwjz_aEcASevD1p5MxSL6QKkh1pX0"
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
