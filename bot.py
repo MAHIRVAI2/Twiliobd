@@ -1,91 +1,157 @@
-import logging
-from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, ContextTypes,
-    ConversationHandler, MessageHandler, filters
-)
-from twilio.rest import Client
+import telebot
+import requests
 
-# Conversation states
-LOGIN_SID, LOGIN_TOKEN = range(2)
+# Bot Token
+TOKEN = "7399378678:AAFN8Gvwjz_aEcASevD1p5MxSL6QKkh1pX0"
+bot = telebot.TeleBot(TOKEN)
 
-# Dictionary to store logged-in Twilio clients per user
-user_clients = {}
+# ইউজার লগইন তথ্য
+user_data = {}
 
-# Setup logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# /start
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.chat.id, "👋 স্বাগতম!\n\n📌 লগইন করুন: `/login SID TOKEN`\n📞 নম্বর দেখুন: `/numbers`\n📩 মেসেজ দেখুন: `/messages`\n💰 ব্যালেন্স দেখুন: `/balance`\n🧾 SID দেখুন: `/mysid`\n🔑 Token দেখুন: `/mytoken`\n🚪 লগআউট করুন: `/logout`", parse_mode="Markdown")
 
-# ✅ /start command handler
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 হ্যালো! Twilio Telegram Bot এ স্বাগতম!\n\n"
-        "🔐 লগইন করতে /login লিখুন\n"
-        "❌ বাতিল করতে /cancel লিখুন"
-    )
+# /login SID TOKEN
+@bot.message_handler(commands=['login'])
+def login(message):
+    chat_id = message.chat.id
+    args = message.text.split()
 
-# ✅ Step 1: Ask for SID
-async def login(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🛡️ আপনার Twilio Account SID দিন:")
-    return LOGIN_SID
+    if len(args) != 3:
+        bot.send_message(chat_id, "❌ সঠিক ফরম্যাট: `/login SID TOKEN`", parse_mode="Markdown")
+        return
 
-# ✅ Step 2: Save SID and ask for Token
-async def get_sid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["sid"] = update.message.text.strip()
-    await update.message.reply_text("🔑 এখন আপনার Twilio Auth Token দিন:")
-    return LOGIN_TOKEN
+    sid = args[1]
+    token = args[2]
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}.json"
 
-# ✅ Step 3: Save Token and validate login
-async def get_token(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    sid = context.user_data.get("sid")
-    token = update.message.text.strip()
-    user_id = update.message.from_user.id
+    response = requests.get(url, auth=(sid, token))
+    if response.status_code == 200:
+        user_data[chat_id] = {"sid": sid, "token": token}
+        bot.send_message(chat_id, "✅ লগইন সফলভাবে সম্পন্ন হয়েছে!")
+    else:
+        bot.send_message(chat_id, "❌ SID বা TOKEN ভুল!")
 
-    try:
-        client = Client(sid, token)
-        # Validate credentials
-        client.api.accounts(sid).fetch()
+# /logout
+@bot.message_handler(commands=['logout'])
+def logout(message):
+    chat_id = message.chat.id
+    if chat_id in user_data:
+        user_data.pop(chat_id)
+        bot.send_message(chat_id, "🚪 আপনি সফলভাবে লগআউট হয়েছেন।")
+    else:
+        bot.send_message(chat_id, "❌ আপনি লগইন করেননি।")
 
-        user_clients[user_id] = client
-        await update.message.reply_text("✅ সফলভাবে লগইন হয়েছে! এখন আপনি কমান্ড ব্যবহার করতে পারবেন।")
+# /me
+@bot.message_handler(commands=['me'])
+def me(message):
+    chat_id = message.chat.id
+    if chat_id in user_data:
+        sid = user_data[chat_id]['sid']
+        bot.send_message(chat_id, f"🔐 আপনি লগইন করেছেন।\nSID: `{sid}`", parse_mode="Markdown")
+    else:
+        bot.send_message(chat_id, "❌ আপনি এখনো লগইন করেননি।")
 
-    except Exception as e:
-        logging.error(f"Login failed for user {user_id}: {e}")
-        await update.message.reply_text("❌ লগইন ব্যর্থ! SID বা Token ভুল হতে পারে। আবার চেষ্টা করুন।")
+# /mysid
+@bot.message_handler(commands=['mysid'])
+def mysid(message):
+    chat_id = message.chat.id
+    if chat_id in user_data:
+        sid = user_data[chat_id]['sid']
+        bot.send_message(chat_id, f"🧾 আপনার SID:\n`{sid}`", parse_mode="Markdown")
+    else:
+        bot.send_message(chat_id, "❌ লগইন করুন আগে।")
 
-    return ConversationHandler.END
+# /mytoken
+@bot.message_handler(commands=['mytoken'])
+def mytoken(message):
+    chat_id = message.chat.id
+    if chat_id in user_data:
+        token = user_data[chat_id]['token']
+        bot.send_message(chat_id, f"🔑 আপনার Token:\n`{token}`", parse_mode="Markdown")
+    else:
+        bot.send_message(chat_id, "❌ লগইন করুন আগে।")
 
-# ✅ Cancel command to stop the login process
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ লগইন প্রক্রিয়া বাতিল করা হয়েছে।")
-    return ConversationHandler.END
+# /balance
+@bot.message_handler(commands=['balance'])
+def balance(message):
+    chat_id = message.chat.id
+    if chat_id in user_data:
+        sid = user_data[chat_id]['sid']
+        token = user_data[chat_id]['token']
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Balance.json"
+        response = requests.get(url, auth=(sid, token))
 
-# ✅ Main function to run the bot
-if __name__ == "__main__":
-    import asyncio
+        if response.status_code == 200:
+            data = response.json()
+            balance = data.get('balance')
+            currency = data.get('currency')
+            bot.send_message(chat_id, f"💰 আপনার ব্যালেন্স: `{balance} {currency}`", parse_mode="Markdown")
+        else:
+            bot.send_message(chat_id, "⚠️ ব্যালেন্স আনতে সমস্যা হচ্ছে।")
+    else:
+        bot.send_message(chat_id, "❌ আগে লগইন করুন।")
 
-    async def main():
-        TOKEN = "7399378678:AAFN8Gvwjz_aEcASevD1p5MxSL6QKkh1pX0"  # <-- এখানে আপনার Bot Token বসান
+# /numbers
+@bot.message_handler(commands=['numbers'])
+def numbers(message):
+    chat_id = message.chat.id
+    if chat_id in user_data:
+        sid = user_data[chat_id]['sid']
+        token = user_data[chat_id]['token']
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/IncomingPhoneNumbers.json"
+        response = requests.get(url, auth=(sid, token))
 
-        app = ApplicationBuilder().token(TOKEN).build()
+        if response.status_code == 200:
+            data = response.json()
+            phone_numbers = data['incoming_phone_numbers']
+            if not phone_numbers:
+                bot.send_message(chat_id, "📭 কোনো নম্বর পাওয়া যায়নি।")
+                return
 
-        # Login conversation handler
-        login_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("login", login)],
-            states={
-                LOGIN_SID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_sid)],
-                LOGIN_TOKEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_token)],
-            },
-            fallbacks=[CommandHandler("cancel", cancel)],
-        )
+            msg = "📱 আপনার নম্বরসমূহ:\n"
+            for p in phone_numbers:
+                num = p.get('phone_number')
+                sid = p.get('sid')
+                msg += f"- `{num}` (SID: `{sid}`)\n"
+            bot.send_message(chat_id, msg, parse_mode="Markdown")
+        else:
+            bot.send_message(chat_id, "⚠️ নম্বর আনতে সমস্যা হচ্ছে।")
+    else:
+        bot.send_message(chat_id, "❌ আগে লগইন করুন।")
 
-        # Handlers
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(login_conv_handler)
+# /messages
+@bot.message_handler(commands=['messages'])
+def messages_handler(message):
+    chat_id = message.chat.id
+    if chat_id in user_data:
+        sid = user_data[chat_id]['sid']
+        token = user_data[chat_id]['token']
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+        response = requests.get(url, auth=(sid, token))
 
-        print("🤖 Bot is running...")
-        await app.run_polling()
+        if response.status_code == 200:
+            data = response.json()
+            messages = data['messages'][:5]  # সর্বশেষ ৫টি মেসেজ
 
-    asyncio.run(main())
+            if not messages:
+                bot.send_message(chat_id, "📭 কোনো মেসেজ পাওয়া যায়নি।")
+                return
+
+            msg = "📩 সর্বশেষ মেসেজসমূহ:\n"
+            for m in messages:
+                from_ = m.get('from')
+                to = m.get('to')
+                body = m.get('body')
+                msg += f"\n🧾 From: `{from_}`\n➡️ To: `{to}`\n💬 Message: `{body}`\n"
+            bot.send_message(chat_id, msg, parse_mode="Markdown")
+        else:
+            bot.send_message(chat_id, "⚠️ মেসেজ আনতে সমস্যা হচ্ছে।")
+    else:
+        bot.send_message(chat_id, "❌ আগে লগইন করুন।")
+
+# বট চালু
+print("🤖 Bot চালু হয়েছে...")
+bot.infinity_polling()
