@@ -326,8 +326,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if plan in prices:
             _, label, cost = prices[plan]
             msg = (
-                f"Please send {cost} to Binance Pay ID: 469628989\n"
-                f"পেমেন্ট করার পর প্রুভ পাঠান Admin কে @Mr_Evan3490 \n\n"
+                f"Please send {cost} to Binance Pay ID: 193397852\n"
+                f"পেমেন্ট করার পর প্রুভ পাঠান Admin কে @MAHIRVAI2 \n\n"
                 f"User ID: {user_id}\nUsername: {username}\nPlan: {label} - {cost}"
             )
             await query.edit_message_text(msg)
